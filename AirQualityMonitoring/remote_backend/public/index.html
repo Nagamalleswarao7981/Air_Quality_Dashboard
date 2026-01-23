@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Quality Remote Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+
+        .card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+
+<body class="p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 flex justify-between items-center">
+            <div>
+                <h1
+                    class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
+                    AirQuality Remote
+                </h1>
+                <p class="text-slate-400 text-sm mt-1">Real-time GSM Monitoring System</p>
+            </div>
+            <div id="connectionStatus"
+                class="px-3 py-1 rounded-full text-xs font-mono bg-red-500/20 text-red-400 border border-red-500/30">
+                Disconnected
+            </div>
+        </header>
+
+        <!-- Device Grid -->
+        <div id="deviceGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Devices will appear here -->
+            <div class="col-span-full text-center py-12 text-slate-500 italic" id="emptyState">
+                Waiting for device data...
+            </div>
+        </div>
+    </div>
+
+    <!-- Template -->
+    <template id="deviceTemplate">
+        <div class="card rounded-2xl p-6 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/10">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h2 class="text-xl font-semibold text-white device-id">Device ID</h2>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        <span class="text-xs text-slate-400 last-seen">Just now</span>
+                    </div>
+                </div>
+                <div class="bg-blue-500/10 p-2 rounded-lg text-blue-400">
+                    <i data-lucide="cpu" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-white/5">
+                    <div class="text-xs text-slate-400 mb-1">CO2 Level</div>
+                    <div class="text-2xl font-bold text-emerald-400"><span class="val-co2">--</span> <span
+                            class="text-sm text-slate-500">ppm</span></div>
+                </div>
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-white/5">
+                    <div class="text-xs text-slate-400 mb-1">Temperature</div>
+                    <div class="text-2xl font-bold text-amber-400"><span class="val-temp">--</span> <span
+                            class="text-sm text-slate-500">°C</span></div>
+                </div>
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-white/5">
+                    <div class="text-xs text-slate-400 mb-1">Humidity</div>
+                    <div class="text-2xl font-bold text-blue-400"><span class="val-hum">--</span> <span
+                            class="text-sm text-slate-500">%</span></div>
+                </div>
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-white/5">
+                    <div class="text-xs text-slate-400 mb-1">Signal</div>
+                    <div class="text-lg font-bold text-purple-400"><span class="val-sig">--</span> <span
+                            class="text-xs text-slate-500">dBm</span></div>
+                </div>
+            </div>
+
+            <!-- Network Status Details -->
+            <div class="bg-slate-900/50 rounded-xl p-4 mb-6 border border-white/5">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs text-slate-400">Operator</span>
+                    <span class="text-sm font-semibold text-white val-operator">--</span>
+                </div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs text-slate-400">Network Type</span>
+                    <span class="text-sm font-mono text-blue-300 val-netType">--</span>
+                </div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs text-slate-400">SIM Status</span>
+                    <span
+                        class="text-xs font-bold px-2 py-0.5 rounded bg-slate-700 text-slate-300 val-simStatus">--</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-xs text-slate-400">IP Address</span>
+                    <span class="text-xs font-mono text-slate-300 val-ip">--</span>
+                </div>
+            </div>
+
+            <div class="border-t border-white/10 pt-4">
+                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Controls</h3>
+                <div class="flex gap-2 mb-3">
+                    <button
+                        class="btn-poll flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-sm font-medium transition-colors">
+                        Force Poll
+                    </button>
+                    <button
+                        class="btn-reboot flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded-lg text-sm font-medium transition-colors border border-red-500/30">
+                        Reboot
+                    </button>
+                </div>
+                <button
+                    class="btn-health w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 py-2 rounded-lg text-sm font-medium transition-colors border border-emerald-500/30 flex items-center justify-center gap-2">
+                    <i data-lucide="activity" class="w-4 h-4"></i> Device Health & OTA
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        const socket = io();
+        const devices = {};
+        const emptyState = document.getElementById('emptyState');
+        const grid = document.getElementById('deviceGrid');
+        const tmpl = document.getElementById('deviceTemplate');
+
+        socket.on('connect', () => {
+            const el = document.getElementById('connectionStatus');
+            el.textContent = 'Live Connected';
+            el.className = 'px-3 py-1 rounded-full text-xs font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        });
+
+        socket.on('disconnect', () => {
+            const el = document.getElementById('connectionStatus');
+            el.textContent = 'Reconnecting...';
+            el.className = 'px-3 py-1 rounded-full text-xs font-mono bg-red-500/20 text-red-400 border border-red-500/30';
+        });
+
+        socket.on('device_data', ({ deviceId, data }) => {
+            if (emptyState) emptyState.style.display = 'none';
+
+            if (!devices[deviceId]) {
+                const clone = tmpl.content.cloneNode(true);
+                const card = clone.querySelector('.card');
+                card.id = `dev-${deviceId}`;
+                card.querySelector('.device-id').textContent = deviceId;
+
+                // Bind buttons
+                card.querySelector('.btn-poll').onclick = () => sendCmd(deviceId, 'poll');
+                card.querySelector('.btn-reboot').onclick = () => sendCmd(deviceId, 'reboot');
+
+                // Device Health Navigation
+                card.querySelector('.btn-health').onclick = () => {
+                    window.location.href = `health.html?id=${deviceId}`;
+                };
+
+                grid.appendChild(card);
+                devices[deviceId] = card;
+                lucide.createIcons();
+            }
+
+            const card = devices[deviceId];
+            // Update values
+            if (data.co2) card.querySelector('.val-co2').textContent = data.co2;
+            if (data.temp) card.querySelector('.val-temp').textContent = data.temp;
+            if (data.hum) card.querySelector('.val-hum').textContent = data.hum;
+            if (data.signal) card.querySelector('.val-sig').textContent = data.signal.dbm;
+
+            // Highlight update
+            card.style.borderColor = 'rgba(52, 211, 153, 0.5)';
+            setTimeout(() => card.style.borderColor = 'rgba(255,255,255,0.1)', 500);
+
+            // Update timestamp
+            card.querySelector('.last-seen').textContent = new Date().toLocaleTimeString();
+            // Update timestamp
+            card.querySelector('.last-seen').textContent = new Date().toLocaleTimeString();
+        });
+
+        socket.on('device_status', ({ deviceId, status }) => {
+            if (emptyState) emptyState.style.display = 'none';
+            if (!devices[deviceId]) {
+                // If we get status before data, create card (logic simplified: reuse data clone)
+                // For now, assume data comes first or handle lazily. 
+                // Let's copy the creation logic or wait for data packet.
+                // To be robust, we'll try to find it, if not return.
+                return;
+            }
+            const card = devices[deviceId];
+
+            // Update Network Values
+            if (status.operator) card.querySelector('.val-operator').textContent = status.operator;
+            if (status.network_type) card.querySelector('.val-netType').textContent = status.network_type;
+            if (status.sim_status) {
+                const el = card.querySelector('.val-simStatus');
+                el.textContent = status.sim_status;
+                if (status.sim_status === 'READY') el.className = 'text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 val-simStatus';
+                else el.className = 'text-xs font-bold px-2 py-0.5 rounded bg-red-500/20 text-red-400 val-simStatus';
+            }
+            if (status.ip_assigned) card.querySelector('.val-ip').textContent = 'Assigned'; // Simplify or passed IP if available
+
+            // Also update signal here as it's fresher (1s)
+            if (status.signal_rssi) card.querySelector('.val-sig').textContent = status.signal_rssi;
+
+            // Highlight update
+            card.style.borderColor = 'rgba(59, 130, 246, 0.5)';
+            setTimeout(() => card.style.borderColor = 'rgba(255,255,255,0.1)', 500);
+            setTimeout(() => card.style.borderColor = 'rgba(255,255,255,0.1)', 500);
+        });
+
+
+
+        function sendCmd(deviceId, cmd) {
+            socket.emit('command', { deviceId, command: cmd, payload: 1 });
+            console.log('Sent', cmd);
+        }
+    </script>
+</body>
+
+</html>
