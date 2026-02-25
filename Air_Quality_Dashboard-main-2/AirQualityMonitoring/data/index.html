@@ -1,0 +1,1353 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Industrial AQM Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-main: #f8fafc;
+            --bg-sidebar: #0f172a;
+            --sidebar-text: #94a3b8;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: rgba(226, 232, 240, 0.8);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-main);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-sidebar);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            transition: 0.3s;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            color: #fff;
+            font-size: 20px;
+            font-weight: 800;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-link {
+            padding: 14px 24px;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: 0.2s;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            border-left: 4px solid var(--primary);
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 20px;
+            color: var(--sidebar-text);
+            font-size: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-header {
+            background: #fff;
+            padding: 16px 32px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .status-badge {
+            background: #10b98115;
+            color: #10b981;
+            padding: 6px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: currentColor;
+            border-radius: 50%;
+        }
+
+        .content-area {
+            padding: 32px;
+            flex: 1;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Cards & Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            background: #fff;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .card h3 {
+            font-size: 16px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        /* Metrics */
+        .metric-value {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--text-main);
+            line-height: 1.2;
+        }
+
+        .metric-unit {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-left: 4px;
+        }
+
+        .metric-sub {
+            font-size: 13px;
+            margin-top: 8px;
+        }
+
+        .trend-up {
+            color: var(--success);
+        }
+
+        .trend-down {
+            color: var(--danger);
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        td,
+        th {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 14px;
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        /* Buttons & Inputs */
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            background: var(--primary);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        input,
+        select {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: 100%;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        /* Logs Console */
+        .log-console {
+            background: #0f172a;
+            color: #fff;
+            padding: 16px;
+            border-radius: 8px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 4px;
+        }
+
+        .log-INFO {
+            color: #60a5fa;
+        }
+
+        .log-WARN {
+            color: #f59e0b;
+        }
+
+        .log-ERROR {
+            color: #ef4444;
+        }
+
+        /* Responsive */
+        @media(max-width:768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .menu-toggle {
+                display: block;
+            }
+        }
+
+        .icon {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+        }
+
+        .nav-link .icon {
+            width: 20px;
+            height: 20px;
+            opacity: 0.8;
+        }
+
+        .icon-card {
+            width: 20px;
+            height: 20px;
+            stroke: var(--text-muted);
+            stroke-width: 2;
+            fill: none;
+            float: right;
+        }
+
+        .pulse {
+            animation: pulse-animation 2s infinite;
+        }
+
+        @keyframes pulse-animation {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.7;
+                transform: scale(0.95);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">UnioLabs AQM</div>
+        <nav style="flex:1; padding-top:20px;">
+            <a href="#" class="nav-link active" onclick="nav('index', event)">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                Overview
+            </a>
+            <a href="#" class="nav-link" onclick="nav('sensors', event)">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                </svg>
+                Sensor Health
+            </a>
+            <a href="#" class="nav-link" onclick="nav('network', event)">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                    <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                    <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                    <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                </svg>
+                GSM Network
+            </a>
+            <a href="#" class="nav-link" onclick="nav('health', event)">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                    <rect x="9" y="9" width="6" height="6"></rect>
+                    <line x1="9" y1="1" x2="9" y2="4"></line>
+                    <line x1="15" y1="1" x2="15" y2="4"></line>
+                    <line x1="9" y1="20" x2="9" y2="23"></line>
+                    <line x1="15" y1="20" x2="15" y2="23"></line>
+                    <line x1="20" y1="9" x2="23" y2="9"></line>
+                    <line x1="20" y1="14" x2="23" y2="14"></line>
+                    <line x1="1" y1="9" x2="4" y2="9"></line>
+                    <line x1="1" y1="14" x2="4" y2="14"></line>
+                </svg>
+                Device Health
+            </a>
+
+            <a href="#" class="nav-link" onclick="nav('at', event)">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <polyline points="4 17 10 11 4 5"></polyline>
+                    <line x1="12" y1="19" x2="20" y2="19"></line>
+                </svg>
+                AT Console
+            </a>
+        </nav>
+        <div class="sidebar-footer">Firmware v1.0.0</div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="main-header">
+            <div style="display:flex; align-items:center; gap:16px;">
+                <button class="btn btn-sm" onclick="document.getElementById('sidebar').classList.toggle('open')"
+                    style="display:none; @media(max-width:768px){display:block;}">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="page-title" id="page-title">Overview</div>
+            </div>
+            <div class="status-badge"><span class="status-dot"></span> Online</div>
+        </div>
+
+        <div class="content-area">
+
+            <!-- OVERVIEW PAGE -->
+            <div id="page-index" class="page active">
+                <div class="grid">
+                    <div class="card">
+                        <h3>
+                            CO2 Level
+                            <svg class="icon-card pulse" viewBox="0 0 24 24">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                            </svg>
+                        </h3>
+                        <div class="metric-value" id="val-co2">--</div><span class="metric-unit">ppm</span>
+                        <div class="metric-sub" id="stat-co2">Loading...</div>
+                    </div>
+                    <div class="card">
+                        <h3>
+                            Temperature
+                            <svg class="icon-card pulse" viewBox="0 0 24 24">
+                                <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path>
+                            </svg>
+                        </h3>
+                        <div class="metric-value" id="val-temp">--</div><span class="metric-unit">°C</span>
+                    </div>
+                    <div class="card">
+                        <h3>
+                            Humidity
+                            <svg class="icon-card pulse" viewBox="0 0 24 24">
+                                <path d="M12 2.69l5.74 5.88a6 6 0 0 1-8.48 8.48A6 6 0 0 1 5.53 9.44L12 2.69z"></path>
+                            </svg>
+                        </h3>
+                        <div class="metric-value" id="val-hum">--</div><span class="metric-unit">%</span>
+                    </div>
+                    <div class="card">
+                        <h3>
+                            Network Signal
+                            <svg class="icon-card pulse" viewBox="0 0 24 24">
+                                <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                                <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                                <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                                <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                            </svg>
+                        </h3>
+                        <div class="metric-value" id="val-signal">--</div><span class="metric-unit">dBm</span>
+                        <div class="metric-sub" id="val-operator">--</div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:24px;">
+                    <h3>Quick Actions</h3>
+                    <div style="display:flex; gap:12px;">
+                        <button class="btn" onclick="nav('network', event)">Manage Network</button>
+                    </div>
+                </div>
+
+
+            </div>
+
+            <!-- SENSOR HEALTH -->
+            <div id="page-sensors" class="page">
+                <div class="card">
+                    <h3>SCD30 SENSOR STATUS</h3>
+                    <div style="display:flex; align-items:center; gap:24px; margin-bottom:20px;">
+                        <div id="status-badge-large"
+                            style="padding:12px 24px; border-radius:12px; font-size:20px; font-weight:700; background:#10b981; color:#fff; display:flex; align-items:center; gap:10px;">
+                            <div class="status-dot"
+                                style="width:12px; height:12px; background:#fff; border-radius:50%;"></div>
+                            <span id="status-text">OK</span>
+                        </div>
+                        <div style="flex:1;">
+                            <div style="font-size:13px; color:var(--text-muted); margin-bottom:4px;">Last Update</div>
+                            <div id="last-update-text" style="font-size:16px; font-weight:600;">-- seconds ago</div>
+                        </div>
+                        <div>
+                            <div style="font-size:13px; color:var(--text-muted); margin-bottom:4px;">Error Count</div>
+                            <div id="error-count-text" style="font-size:16px; font-weight:600;">0</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+                        <button class="btn" onclick="restartSensor()">
+                            <svg class="icon" viewBox="0 0 24 24" style="vertical-align:bottom;margin-right:4px;">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                            Restart Sensor
+                        </button>
+                        <button class="btn" onclick="reinitI2C()">
+                            <svg class="icon" viewBox="0 0 24 24" style="vertical-align:bottom;margin-right:4px;">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                            </svg>
+                            Re-Init I²C
+                        </button>
+                        <button class="btn" onclick="clearErrors()">
+                            <svg class="icon" viewBox="0 0 24 24" style="vertical-align:bottom;margin-right:4px;">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path
+                                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                                </path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                            Clear Errors
+                        </button>
+
+                    </div>
+                    <h3 style="margin-top:24px;">DETAILED METRICS</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Value</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>CO₂ Reading</td>
+                                <td id="metric-co2">--</td>
+                                <td id="metric-co2-status"><span style="color:#10b981">✓ Valid</span></td>
+                            </tr>
+                            <tr>
+                                <td>Temperature</td>
+                                <td id="metric-temp">--</td>
+                                <td id="metric-temp-status"><span style="color:#10b981">✓ Valid</span></td>
+                            </tr>
+                            <tr>
+                                <td>Humidity</td>
+                                <td id="metric-hum">--</td>
+                                <td id="metric-hum-status"><span style="color:#10b981">✓ Valid</span></td>
+                            </tr>
+                            <tr>
+                                <td>I²C Communication</td>
+                                <td id="metric-i2c">--</td>
+                                <td id="metric-i2c-status"><span style="color:#10b981">✓ OK</span></td>
+                            </tr>
+                            <tr>
+                                <td>Data Freshness</td>
+                                <td id="metric-freshness">--</td>
+                                <td id="metric-freshness-status"><span style="color:#10b981">✓ Fresh</span></td>
+                            </tr>
+                            <tr>
+                                <td>Auto-Calibration</td>
+                                <td id="metric-calibration">ASC Enabled</td>
+                                <td><span style="color:#10b981">✓ Active</span></td>
+                            </tr>
+                            <tr>
+                                <td>Consecutive Errors</td>
+                                <td id="metric-consecutive-errors">0</td>
+                                <td id="metric-consecutive-status"><span style="color:#10b981">✓ OK</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- GSM NETWORK & MQTT -->
+            <div id="page-network" class="page">
+                <!-- Status Section -->
+                <div class="card" style="margin-bottom:24px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h3>MOBILE NETWORK STATUS</h3>
+                        <div id="mqtt-badge" class="status-badge" style="background:#f59e0b;">CONNECTING...</div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px;">
+                        <!-- Left: Signal & Operator -->
+                        <div>
+                            <div style="display:flex; gap:15px; align-items:center; margin-bottom:15px;">
+                                <div id="signal-icon">
+                                    <svg class="icon" style="width:24px;height:24px;" viewBox="0 0 24 24">
+                                        <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                                        <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                                        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                                        <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div style="font-size:12px; color:var(--text-muted)">Operator</div>
+                                    <div id="net-operator" style="font-size:20px; font-weight:600">--</div>
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:15px; align-items:center;">
+                                <div>
+                                    <svg class="icon" style="width:24px;height:24px;" viewBox="0 0 24 24">
+                                        <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"></path>
+                                        <path d="M8.5 8.5a7 7 0 0 1 10.5 0"></path>
+                                        <path d="M6.5 12.5a5 5 0 0 1 6 0"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div style="font-size:12px; color:var(--text-muted)">Technology</div>
+                                    <div id="net-tech" style="font-size:16px; font-weight:600">--</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Metrics Table -->
+                        <table style="font-size:14px;">
+                            <tr>
+                                <td style="color:var(--text-muted)">IP Address</td>
+                                <td id="net-ip" style="text-align:right">--</td>
+                            </tr>
+                            <tr>
+                                <td style="color:var(--text-muted)">Signal</td>
+                                <td id="net-rssi" style="text-align:right">-- dBm</td>
+                            </tr>
+                            <tr>
+                                <td style="color:var(--text-muted)">APN</td>
+                                <td id="net-apn-display" style="text-align:right">--</td>
+                            </tr>
+                            <tr>
+                                <td style="color:var(--text-muted)">State</td>
+                                <td id="net-state-display" style="text-align:right">--</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Configuration Section -->
+                <div class="card">
+                    <h3>NETWORK CONFIGURATION</h3>
+
+                    <div class="form-group" style="margin-bottom:15px;">
+                        <label>Network Preset</label>
+                        <select id="net-preset" onchange="applyPreset()">
+                            <option value="custom">Custom Configuration</option>
+                            <option value="airtel-iot">Airtel IoT (airteliot.com)</option>
+                            <option value="airtel-gprs">Airtel General (airtelgprs.com)</option>
+                            <option value="jio">Jio (jionet)</option>
+                            <option value="vi">Vodafone Idea (portalnmms)</option>
+                            <option value="bsnl">BSNL (bsnlnet)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>APN (Access Point Name)</label>
+                        <input type="text" id="conf-apn" placeholder="e.g. airteliot.com">
+                    </div>
+
+                    <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border);">
+                        <h4>MQTT Broker Settings</h4>
+
+                        <div class="grid" style="margin-top:15px;">
+                            <div class="form-group">
+                                <label>Broker Address</label>
+                                <input type="text" id="conf-broker" placeholder="mqtt.uniolabs.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Port</label>
+                                <input type="number" id="conf-port" value="1883">
+                            </div>
+                        </div>
+
+                        <div class="grid">
+                            <div class="form-group">
+                                <label>Username (Optional)</label>
+                                <input type="text" id="conf-user" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label>Password (Optional)</label>
+                                <input type="password" id="conf-pass" autocomplete="off">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn" id="btn-save-net" style="width:100%; margin-top:24px;"
+                        onclick="saveNetworkConfig()">
+                        <svg class="icon" viewBox="0 0 24 24" style="vertical-align:bottom;margin-right:4px;">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        Save Configuration & Reconnect
+                    </button>
+                    <div id="net-save-status"
+                        style="text-align:center; margin-top:10px; font-size:13px; color:var(--text-muted)"></div>
+                </div>
+            </div>
+
+            <!-- DEVICE HEALTH -->
+            <div id="page-health" class="page">
+                <div class="grid">
+                    <div class="card">
+                        <h3>System Uptime</h3>
+                        <div class="metric-value" id="sys-uptime">--</div>
+                        <div class="metric-sub">Hours</div>
+                    </div>
+                    <div class="card">
+                        <h3>Memory (Heap)</h3>
+                        <div class="metric-value" id="sys-heap">--</div>
+                        <div class="metric-sub">Bytes Free</div>
+                    </div>
+                    <div class="card">
+                        <h3>Maintenance</h3>
+                        <button class="btn" style="background:var(--danger);" onclick="rebootDevice()">Reboot
+                            Device</button>
+                    </div>
+                    <div class="card">
+                        <h3>Firmware Update (OTA)</h3>
+                        <div style="margin-bottom:16px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                                <span style="font-size:13px; color:var(--text-muted);">Current Version:</span>
+                                <span id="fw-version" style="font-weight:600;">v1.0.0</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                                <span style="font-size:13px; color:var(--text-muted);">Status:</span>
+                                <span id="ota-status-badge"
+                                    style="padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; background:#f1f5f9; color:#64748b;">Idle</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between;">
+                                <span style="font-size:13px; color:var(--text-muted);">Last Update:</span>
+                                <span id="last-update" style="font-size:13px;">Never</span>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div id="ota-progress-container" style="display:none; margin-bottom:16px;">
+                            <div
+                                style="font-size:13px; margin-bottom:4px; display:flex; justify-content:space-between;">
+                                <span>Upload Progress</span>
+                                <span id="ota-progress-text">0%</span>
+                            </div>
+                            <div style="background:#f1f5f9; height:8px; border-radius:4px; overflow:hidden;">
+                                <div id="ota-progress-bar"
+                                    style="background:var(--primary); height:100%; width:0%; transition:width 0.3s;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Upload Form -->
+                        <div style="margin-bottom:12px;">
+                            <input type="file" id="fw-file" accept=".bin" style="font-size:13px;">
+                        </div>
+                        <button class="btn" id="upload-btn" onclick="uploadFirmware()">Upload Firmware</button>
+                        <div id="ota-message" style="margin-top:12px; font-size:13px; display:none;"></div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- AT CONSOLE -->
+            <div id="page-at" class="page">
+                <div class="card">
+                    <h3>AT Command Console</h3>
+
+                    <div class="grid" style="grid-template-columns: 2fr 1fr; gap:16px; margin-bottom:16px;">
+                        <input type="text" id="at-input" placeholder="Enter AT Command (e.g. AT+CSQ)"
+                            onkeypress="if(event.key==='Enter') sendAT()">
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn" onclick="sendAT()">Send</button>
+                            <button class="btn" style="background:var(--danger);" onclick="clearAT()">Clear</button>
+                        </div>
+                    </div>
+
+                    <div class="at-macro-group">
+                        <label>General</label>
+                        <div>
+                            <button class="btn btn-sm" onclick="setInput('AT')">AT</button>
+                            <button class="btn btn-sm" onclick="setInput('ATI')">Info</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+CPIN?')">SIM Status</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+CIMI')">IMSI</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+GSN')">IMEI</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+CSQ')">Signal</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+CCLK?')">Time</button>
+                        </div>
+                    </div>
+
+                    <div class="at-macro-group">
+                        <label>Network</label>
+                        <div>
+                            <button class="btn btn-sm" onclick="setInput('AT+CREG?')">Reg (CS)</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+CEREG?')">Reg (LTE)</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+CGREG?')">Reg (PS)</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+COPS?')">Operator</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+QNWINFO')">Band Info</button>
+                        </div>
+                    </div>
+
+                    <div class="at-macro-group">
+                        <label>Packet Data (PDP)</label>
+                        <div>
+                            <button class="btn btn-sm" onclick="setInput('AT+QICSGP=1')">Check APN</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+QIACT=1')">Activate PDP</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+QIACT?')">IP Address</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+QIDEACT=1')">Deactivate</button>
+                        </div>
+                    </div>
+
+                    <div class="at-macro-group">
+                        <label>MQTT (Quectel)</label>
+                        <div>
+                            <button class="btn btn-sm" onclick="setInput('AT+QMTCFG=&quot;version&quot;,0')">MQTT
+                                Ver</button>
+                            <button class="btn btn-sm"
+                                onclick="setInput('AT+QMTOPEN=0,&quot;broker_host&quot;,1883')">Open</button>
+                            <button class="btn btn-sm"
+                                onclick="setInput('AT+QMTCONN=0,&quot;client_id&quot;')">Connect</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+QMTDISC=0')">Disconnect</button>
+                        </div>
+                    </div>
+
+                    <div class="at-macro-group">
+                        <label>Audio & Hardware</label>
+                        <div>
+                            <button class="btn btn-sm" onclick="setInput('AT+CLVL=?')">Vol Range</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+CBC')">Battery</button>
+                            <button class="btn btn-sm" onclick="setInput('AT+QTEMP')">Temp</button>
+                        </div>
+                    </div>
+
+                    <style>
+                        .at-macro-group {
+                            margin-bottom: 12px;
+                        }
+
+                        .at-macro-group label {
+                            display: block;
+                            font-size: 11px;
+                            color: var(--text-muted);
+                            margin-bottom: 4px;
+                            text-transform: uppercase;
+                            letter-spacing: 0.5px;
+                            font-weight: 600;
+                        }
+
+                        .at-macro-group div {
+                            display: flex;
+                            flex-wrap: wrap;
+                            gap: 6px;
+                        }
+
+                        .at-macro-group .btn-sm {
+                            background: #e2e8f0;
+                            color: #334155;
+                            border: 1px solid #cbd5e1;
+                        }
+
+                        .at-macro-group .btn-sm:hover {
+                            background: #cbd5e1;
+                        }
+                    </style>
+
+                    <div class="log-console" id="at-log" style="height:400px; font-size:13px;">
+                        <div class="log-entry log-INFO">Ready to send AT commands...</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Network preset helper
+        function applyPreset() {
+            const preset = document.getElementById('net-preset').value;
+            const apnField = document.getElementById('conf-apn');
+            if (preset === 'airtel-iot') apnField.value = 'airteliot.com';
+            else if (preset === 'airtel-gprs') apnField.value = 'airtelgprs.com';
+            else if (preset === 'jio') apnField.value = 'jionet';
+            else if (preset === 'vi') apnField.value = 'portalnmms';
+            else if (preset === 'bsnl') apnField.value = 'bsnlnet';
+            else apnField.value = '';
+        }
+
+        // Navigation
+        function nav(pageId, event) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-' + pageId).classList.add('active');
+            const titles = { index: 'Overview', sensors: 'Sensor Health', network: 'GSM Network', health: 'Device Health', at: 'AT Console' };
+            document.getElementById('page-title').innerText = titles[pageId] || pageId;
+
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            if (event && event.currentTarget) event.currentTarget.classList.add('active');
+            else if (event && event.target) event.target.closest('.nav-link') ? event.target.closest('.nav-link').classList.add('active') : null;
+        }
+
+        // Fetch Logic
+        async function fetchData() {
+            try {
+                // Sensors
+                const res1 = await fetch('/api/sensors');
+                const s = await res1.json();
+                document.getElementById('val-co2').innerText = s.co2.toFixed(0);
+                document.getElementById('val-temp').innerText = s.temp.toFixed(1);
+                document.getElementById('val-hum').innerText = s.hum.toFixed(1);
+
+            } catch (e) { console.error(e); }
+        }
+
+        async function scanNetworks() {
+            document.getElementById('scan-status').innerText = 'Scanning... (Approx 60s)';
+            try {
+                await fetch('/api/gsm/scan', { method: 'POST' });
+                // In real impl, poll for results or wait
+            } catch (e) { alert('Scan failed'); }
+        }
+
+        async function rebootDevice() {
+            if (confirm('Reboot device?')) {
+                await fetch('/api/reboot', { method: 'POST' });
+                alert('Rebooting...');
+            }
+        }
+
+        async function fetchSystemData() {
+            try {
+                const res = await fetch('/api/system');
+                const data = await res.json();
+
+                // Uptime: Seconds -> Hours
+                const hours = (data.uptime / 3600).toFixed(1);
+                document.getElementById('sys-uptime').innerText = hours;
+
+                // Heap: Bytes -> KB maybe? Label says Bytes Free
+                document.getElementById('sys-heap').innerText = data.freeHeap.toLocaleString();
+            } catch (e) { console.error('System data fetch failed', e); }
+        }
+
+        // AT Console Functions
+        function setInput(cmd) {
+            document.getElementById('at-input').value = cmd;
+        }
+
+        function clearAT() {
+            document.getElementById('at-log').innerHTML = '';
+        }
+
+        async function sendAT() {
+            const input = document.getElementById('at-input');
+            const cmd = input.value.trim();
+            if (!cmd) return;
+
+            logAT('>> ' + cmd, 'INFO');
+            input.value = ''; // Clear input but maybe keep history later
+
+            try {
+                const res = await fetch('/api/at/send', {
+                    method: 'POST',
+                    body: JSON.stringify({ cmd: cmd, timeout: 2000 })
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    logAT('ERROR: ' + data.error, 'ERROR');
+                } else {
+                    // Split lines for cleaner output
+                    const lines = data.response.split('\\n'); // Response comes escaped
+                    // FIX: actual response might have real optimized newlines if not escaped fully
+                    // The server escapes it: resp.replace("\n", "\\n");
+                    // So we treat it as string content. 
+                    // Let's just dump it.
+                    logAT(data.response, 'WARN');
+                }
+            } catch (e) {
+                logAT('Request Failed: ' + e.message, 'ERROR');
+            }
+        }
+
+        function logAT(msg, type) {
+            const div = document.createElement('div');
+            div.className = 'log-entry log-' + type;
+            // Handle newlines visual
+            div.innerText = msg.replace(/\\r/g, '').replace(/\\n/g, '\n');
+            div.style.whiteSpace = 'pre-wrap';
+
+            const console = document.getElementById('at-log');
+            console.appendChild(div);
+            console.scrollTop = console.scrollHeight;
+        }
+
+        async function fetchOTAStatus() {
+            try {
+                const res = await fetch('/api/ota/status');
+                const data = await res.json();
+
+                document.getElementById('fw-version').innerText = data.version || 'v1.0.0';
+                document.getElementById('last-update').innerText = data.lastUpdate || 'Never';
+                updateOTAStatus(data.status || 'idle', data.progress || 0);
+            } catch (e) {
+                console.error('OTA status fetch failed:', e);
+            }
+        }
+
+        function updateOTAStatus(status, progress) {
+            const badge = document.getElementById('ota-status-badge');
+            const progressBar = document.getElementById('ota-progress-bar');
+            const progressText = document.getElementById('ota-progress-text');
+            const progressContainer = document.getElementById('ota-progress-container');
+
+            // Update badge color and text
+            let bgColor, textColor, text;
+            switch (status) {
+                case 'idle':
+                    bgColor = '#f1f5f9'; textColor = '#64748b'; text = 'Idle';
+                    progressContainer.style.display = 'none';
+                    break;
+                case 'downloading':
+                    bgColor = '#dbeafe'; textColor = '#2563eb'; text = 'Downloading';
+                    progressContainer.style.display = 'block';
+                    break;
+                case 'updating':
+                    bgColor = '#fed7aa'; textColor = '#ea580c'; text = 'Updating';
+                    progressContainer.style.display = 'block';
+                    break;
+                case 'success':
+                    bgColor = '#d1fae5'; textColor = '#10b981'; text = 'Success';
+                    progressContainer.style.display = 'block';
+                    break;
+                case 'failed':
+                    bgColor = '#fee2e2'; textColor = '#ef4444'; text = 'Failed';
+                    progressContainer.style.display = 'block';
+                    break;
+            }
+            badge.style.background = bgColor;
+            badge.style.color = textColor;
+            badge.innerText = text;
+
+            // Update progress bar
+            if (progress !== undefined) {
+                progressBar.style.width = progress + '%';
+                progressText.innerText = progress + '%';
+            }
+        }
+
+        async function uploadFirmware() {
+            const fileInput = document.getElementById('fw-file');
+            const uploadBtn = document.getElementById('upload-btn');
+            const message = document.getElementById('ota-message');
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                message.style.display = 'block';
+                message.style.color = 'var(--danger)';
+                message.innerText = 'Please select a .bin file first';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            if (!file.name.endsWith('.bin')) {
+                message.style.display = 'block';
+                message.style.color = 'var(--danger)';
+                message.innerText = 'Please select a valid .bin firmware file';
+                return;
+            }
+
+            // Disable button
+            uploadBtn.disabled = true;
+            uploadBtn.innerText = 'Uploading...';
+            message.style.display = 'none';
+
+            // Create FormData
+            const formData = new FormData();
+            formData.append('firmware', file);
+
+            try {
+                // Start upload
+                updateOTAStatus('downloading', 0);
+
+                const xhr = new XMLHttpRequest();
+
+                // Progress tracking
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percentComplete = Math.round((e.loaded / e.total) * 100);
+                        updateOTAStatus('updating', percentComplete);
+                    }
+                });
+
+                // Upload complete
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 200) {
+                        updateOTAStatus('success', 100);
+                        message.style.display = 'block';
+                        message.style.color = 'var(--success)';
+                        message.innerText = 'Firmware uploaded! Device rebooting...';
+
+                        // Reset UI after delay
+                        setTimeout(() => {
+                            location.reload();
+                        }, 5000);
+                    } else {
+                        throw new Error('Upload failed');
+                    }
+                });
+
+                // Upload error
+                xhr.addEventListener('error', () => {
+                    updateOTAStatus('failed', 0);
+                    message.style.display = 'block';
+                    message.style.color = 'var(--danger)';
+                    message.innerText = 'Upload failed. Please try again.';
+                    uploadBtn.disabled = false;
+                    uploadBtn.innerText = 'Upload Firmware';
+                });
+
+                // Send request
+                xhr.open('POST', '/api/ota/upload');
+                xhr.send(formData);
+
+            } catch (error) {
+                updateOTAStatus('failed', 0);
+                message.style.display = 'block';
+                message.style.color = 'var(--danger)';
+                message.innerText = 'Upload error: ' + error.message;
+                uploadBtn.disabled = false;
+                uploadBtn.innerText = 'Upload Firmware';
+            }
+        }
+
+        // Sensor Health Functions
+        async function fetchSensorHealth() {
+            try {
+                const res = await fetch('/api/sensor/health');
+                const data = await res.json();
+
+                // Update large status badge
+                const badge = document.getElementById('status-badge-large');
+                const statusText = document.getElementById('status-text');
+                badge.style.background = data.statusColor;
+                statusText.innerText = data.status;
+
+                // Update summary info
+                document.getElementById('last-update-text').innerText = data.lastUpdateAge + ' seconds ago';
+                document.getElementById('error-count-text').innerText = data.errorCount;
+
+                // Update detailed metrics
+                document.getElementById('metric-co2').innerText = data.currentValues.co2.toFixed(1) + ' ppm';
+                document.getElementById('metric-temp').innerText = data.currentValues.temp.toFixed(1) + '\u00b0C';
+                document.getElementById('metric-hum').innerText = data.currentValues.hum.toFixed(1) + '%';
+                document.getElementById('metric-i2c').innerText = data.i2cStatus;
+                document.getElementById('metric-freshness').innerText = data.dataFreshness;
+                document.getElementById('metric-calibration').innerText = data.calibration;
+                document.getElementById('metric-consecutive-errors').innerText = data.consecutiveErrors;
+
+                // Update status indicators based on status
+                updateStatusIndicators(data);
+
+            } catch (e) {
+                console.error('Sensor health fetch failed:', e);
+            }
+        }
+
+        function updateStatusIndicators(data) {
+            const isOK = data.status === 'OK';
+            const isWarning = ['FROZEN', 'INVALID_DATA'].includes(data.status);
+            const isError = ['DISCONNECTED', 'I2C_ERROR', 'SENSOR_FAILURE'].includes(data.status);
+
+            // Update metric statuses
+            updateMetricStatus('metric-co2-status', isOK ? 'valid' : 'invalid');
+            updateMetricStatus('metric-temp-status', isOK ? 'valid' : 'invalid');
+            updateMetricStatus('metric-hum-status', isOK ? 'valid' : 'invalid');
+            updateMetricStatus('metric-i2c-status', isOK || isWarning ? 'ok' : 'error');
+            updateMetricStatus('metric-freshness-status', data.dataFreshness === 'FRESH' ? 'fresh' : 'stale');
+            updateMetricStatus('metric-consecutive-status', data.consecutiveErrors === 0 ? 'ok' : 'warning');
+        }
+
+        function updateMetricStatus(elementId, status) {
+            const el = document.getElementById(elementId);
+            const statuses = {
+                'valid': { color: '#10b981', text: '\u2713 Valid' },
+                'invalid': { color: '#ef4444', text: '\u2a2f Invalid' },
+                'ok': { color: '#10b981', text: '\u2713 OK' },
+                'error': { color: '#ef4444', text: '\u2a2f Error' },
+                'fresh': { color: '#10b981', text: '\u2713 Fresh' },
+                'stale': { color: '#f59e0b', text: '\u26a0 Stale' },
+                'warning': { color: '#f59e0b', text: '\u26a0 Warning' }
+            };
+
+            const s = statuses[status] || statuses['ok'];
+            el.innerHTML = `<span style="color:${s.color}">${s.text}</span>`;
+        }
+
+        async function restartSensor() {
+            if (!confirm('Restart the sensor? This will attempt to recover from errors.')) return;
+
+            try {
+                const res = await fetch('/api/sensor/restart', { method: 'POST' });
+                const data = await res.json();
+                alert(data.message);
+                fetchSensorHealth();
+            } catch (e) {
+                alert('Restart failed: ' + e.message);
+            }
+        }
+
+        async function reinitI2C() {
+            if (!confirm('Re-initialize I²C bus? This will reset the I²C communication.')) return;
+
+            try {
+                const res = await fetch('/api/sensor/reinit', { method: 'POST' });
+                const data = await res.json();
+                alert(data.message);
+                fetchSensorHealth();
+            } catch (e) {
+                alert('Re-init failed: ' + e.message);
+            }
+        }
+
+        async function clearErrors() {
+            try {
+                const res = await fetch('/api/sensor/clear-errors', { method: 'POST' });
+                const data = await res.json();
+                alert(data.message);
+                fetchSensorHealth();
+            } catch (e) {
+                alert('Clear errors failed: ' + e.message);
+            }
+        }
+
+        // Network Management Functions
+        function fetchNetworkStatus() {
+            fetch('/api/network/status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('net-operator').innerText = data.operator || '--';
+                    document.getElementById('net-tech').innerText = data.tech || '--';
+                    document.getElementById('net-ip').innerText = data.ip || '--';
+
+                    // RSSI display
+                    let rssi = data.rssi;
+                    let signalIcon = '📶';
+                    if (rssi == 99 || rssi == 0) signalIcon = '❌';
+                    else if (rssi < 10) signalIcon = '▂';
+                    else if (rssi < 15) signalIcon = '▃';
+                    else if (rssi < 20) signalIcon = '▄';
+                    else signalIcon = '█';
+
+                    // document.getElementById('signal-icon').innerText = signalIcon;
+                    document.getElementById('net-rssi').innerText = (data.dbm ? data.dbm : '-') + ' dBm';
+
+                    document.getElementById('net-apn-display').innerText = document.getElementById('conf-apn').value; // Show configured APN
+
+                    // Status Badge
+                    const badge = document.getElementById('mqtt-badge');
+                    badge.innerText = data.status;
+                    badge.style.backgroundColor = data.color;
+
+                    document.getElementById('net-state-display').innerText = data.state;
+
+                    // Update Overview Page Widgets (Real-time)
+                    const ovSignal = document.getElementById('val-signal');
+                    const ovOperator = document.getElementById('val-operator');
+                    if (ovSignal) ovSignal.innerText = (data.dbm ? data.dbm : '--');
+                    if (ovOperator) ovOperator.innerText = (data.operator || '--') + ' (' + (data.tech || '') + ')';
+                })
+                .catch(console.error);
+        }
+
+        function loadNetworkConfig() {
+            fetch('/api/network/config')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('conf-apn').value = data.apn || '';
+                    document.getElementById('conf-broker').value = data.broker || '';
+                    document.getElementById('conf-port').value = data.port || 1883;
+                    document.getElementById('conf-user').value = data.user || '';
+                    // Password not sent back
+                });
+        }
+
+        function saveNetworkConfig() {
+            const btn = document.getElementById('btn-save-net');
+            const status = document.getElementById('net-save-status');
+
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+
+            const payload = {
+                apn: document.getElementById('conf-apn').value,
+                broker: document.getElementById('conf-broker').value,
+                port: document.getElementById('conf-port').value,
+                user: document.getElementById('conf-user').value,
+                pass: document.getElementById('conf-pass').value
+            };
+
+            // Send as query params for current API (or form-data)
+            // Using URLSearchParams
+            const params = new URLSearchParams(payload);
+
+            fetch('/api/network/config', {
+                method: 'POST',
+                body: params
+            })
+                .then(response => response.json())
+                .then(data => {
+                    status.innerText = data.message;
+                    status.style.color = 'green';
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerText = 'Save Configuration & Reconnect';
+                        status.innerText = '';
+                    }, 3000);
+                })
+                .catch(err => {
+                    status.innerText = 'Error saving config';
+                    status.style.color = 'red';
+                    btn.disabled = false;
+                });
+        }
+
+        // Initial Load
+        // Initial Load
+        fetchData();
+        fetchOTAStatus();
+        fetchSensorHealth();
+        fetchNetworkStatus();
+        fetchSystemData();
+        loadNetworkConfig();
+
+        // Polling (Every 3 seconds, Network every 1s)
+        setInterval(fetchData, 3000);
+        setInterval(fetchSensorHealth, 3000);
+        setInterval(fetchNetworkStatus, 1000);
+        setInterval(fetchSystemData, 3000);
+    </script>
+</body>
+
+</html>
